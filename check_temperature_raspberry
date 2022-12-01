@@ -1,0 +1,87 @@
+set -euo pipefail
+
+# Initialize exit codes array
+STATE_ARRAY=(0 OK)
+
+# Initialize device temperature variable
+device_temp=0
+# Warning threshold (degree celsius)
+warn_thresh=60  # This is the default which can be overridden with commandline parameters
+# Critical threshold (degree celsius)
+crit_thresh=70  # This is the default which can be overridden with commandline parameters
+
+function print_help()
+{
+printf "\nOptions:
+-h,
+   Print help screen
+-d, <STRING>
+   Select the device type to monitor: raspberry, amlogic, linux
+-s, <STRING>
+   Select the sensor to monitor, cpu or gpu.
+-w, <INTEGER>
+   Warning threshold, exit with WARNING status if above INTEGER degrees.
+-c, <INTEGER>
+   Critical threshold, exit with CRITICAL status if above INTEGER degrees.
+
+Example:
+./check_temp.sh -a 127.0.0.1 -u root -d raspberry -s cpu -w 65 -c 75
+\n"
+
+STATE_ARRAY[0]=3
+exit ${STATE_ARRAY[0]}
+}
+
+# Check commandline options
+while getopts 'h:w:c:' OPT; do
+  case $OPT in
+    w) warn_thresh=$OPTARG ;;
+    c) crit_thresh=$OPTARG ;;
+    h) print_help
+        exit ${STATE_ARRAY[0]}
+        ;;
+    *) printf "Wrong option or value\n"
+        print_help
+        STATE_ARRAY[0]=3
+        exit ${STATE_ARRAY[0]}
+        ;;
+  esac
+done
+
+shift $(($OPTIND - 1))
+
+# Check if thresholds are numbers
+if ! [[ "$warn_thresh" =~ ^[[:digit:]]+$ ]] || ! [[ "$crit_thresh" =~ ^[[:digit:]]+$ ]]; then
+                printf "[ERROR] Wrong threshold values\n"
+                print_help
+fi
+
+# Check for sensor program or file
+if [ ! -x $(whereis -b vcgencmd | awk '{print $2}') ]; then
+        printf "[ERROR] vcgencmd not found"
+        STATE_ARRAY[0]=3
+        exit STATE_ARRAY[0]
+fi
+
+#device_temp=$(vcgencmd measure_temp | awk '{gsub(/[a-zA-Z=\x27]/,"");print}')
+device_temp=$(cat /sys/class/thermal/thermal_zone0/temp | awk '{print substr($1,1,2)}')
+
+# Check for errorssys
+if (($(echo "$device_temp > $crit_thresh" | bc)))
+then
+  # Temperature above critical threshold
+        STATE_ARRAY[0]=1
+        STATE_ARRAY[1]="CRITICAL"
+# Check for warnings
+elif (($(echo "$device_temp > $warn_thresh" | bc)))
+then
+  # Temperature above warning threshold
+        STATE_ARRAY[0]=2
+        STATE_ARRAY[1]="WARNING"
+fi
+
+# Produce Nagios output
+#echo ".1.3.6.1.2.1.25.1.8"
+#echo "integer"
+echo "${device_temp}"
+exit ${STATE_ARRAY[0]}
