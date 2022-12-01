@@ -17,15 +17,13 @@ printf "\nOptions:
    Print help screen
 -d, <STRING>
    Select the device type to monitor: raspberry, amlogic, linux
--s, <STRING>
-   Select the sensor to monitor, cpu or gpu.
 -w, <INTEGER>
    Warning threshold, exit with WARNING status if above INTEGER degrees.
 -c, <INTEGER>
    Critical threshold, exit with CRITICAL status if above INTEGER degrees.
 
 Example:
-./check_temp.sh -a 127.0.0.1 -u root -d raspberry -s cpu -w 65 -c 75
+./check_temp.sh -a 127.0.0.1 -u root -d raspberry -w 65 -c 75
 \n"
 
 STATE_ARRAY[0]=3
